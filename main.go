@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 /*
@@ -40,16 +41,31 @@ func main() {
 		fmt.Println(err)
 	}
 
-	foundTodos, err := findTodosInDir(*args.directory, *args.extension)
+	var wg sync.WaitGroup
+	files, err := findAllFiles(*args.directory, *args.extension)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	err = writeTodos(foundTodos, outputFile)
+	wg.Add(len(files))
+	for _, file := range files {
+		go processTodos(file, outputFile, &wg)
+	}
+	wg.Wait()
+}
+
+func processTodos(file, outputFile string, wg *sync.WaitGroup) {
+	todos, err := findTodosInFile(file)
 	if err != nil {
 		fmt.Println(err)
 	}
 
+	err = writeTodos(todos, outputFile)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	wg.Done()
 }
 
 type todo struct {
