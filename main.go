@@ -50,11 +50,6 @@ func main() {
 		fmt.Println(err)
 	}
 
-	for _, file := range findAllFiles(*args.directory, *args.extension)
-}
-
-func asdf() {
-
 }
 
 type todo struct {
