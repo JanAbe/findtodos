@@ -46,27 +46,6 @@ func processTodos(dir, ext, out string) {
 
 }
 
-// fetchTodos fetches all todo's from the file and sends them to the channel
-func fetchTodos(file string, c chan []todo, wg *sync.WaitGroup) {
-	todos, err := findTodosInFile(file)
-	if err != nil {
-		fmt.Println(err)
-	}
-	c <- todos
-	wg.Done()
-}
-
-type todo struct {
-	FileName   string
-	LineNumber int
-	Text       string
-}
-
-// toString returns a string representation of the Todo
-func (t todo) toString() string {
-	return fmt.Sprintf("%s - %d - %s\n", t.FileName, t.LineNumber, t.Text)
-}
-
 // CreateOutputFile create a file at the specified location to which
 // all found todo's are written
 func createOutputFile(outputLocation string) (string, error) {
@@ -80,27 +59,51 @@ func createOutputFile(outputLocation string) (string, error) {
 	return outputLocation, err
 }
 
-// FindTodosInDir find all todo's that are present in the directory
-func findTodosInDir(dir, extension string) ([]todo, error) {
-	var todos []todo
-
-	files, err := findAllFiles(dir, extension)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range files {
-		foundTodos, err := findTodosInFile(file)
+// findAllFiles returns a slice of filePaths of files that live inside the
+// provided directory and have the provided extension
+func findAllFiles(dir, extension string) ([]string, error) {
+	var files []string
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil, err
+			fmt.Printf("failed accessing path: %q, with error: %v\n", path, err)
+			return err
 		}
 
-		for _, foundTodo := range foundTodos {
-			todos = append(todos, foundTodo)
+		if !info.IsDir() && filepath.Ext(path) == extension {
+			files = append(files, path)
+		}
+
+		return nil
+	})
+
+	return files, err
+}
+
+// fetchTodos fetches all todo's from the file and sends them to the channel
+func fetchTodos(file string, c chan []todo, wg *sync.WaitGroup) {
+	todos, err := findTodosInFile(file)
+	if err != nil {
+		fmt.Println(err)
+	}
+	c <- todos
+	wg.Done()
+}
+
+// WriteTodos writes all provided todos to the specified file
+func writeTodos(todos []todo, outputFile string) error {
+	file, err := os.OpenFile(outputFile, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for _, todo := range todos {
+		_, err := file.WriteString(todo.toString())
+		if err != nil {
+			return err
 		}
 	}
-
-	return todos, nil
+	return nil
 }
 
 // FindTodosInFile find all todo's in the provided file
@@ -151,54 +154,26 @@ func findTodoInString(line string) string {
 	return todoText
 }
 
-// WriteTodos writes all provided todos to the specified file
-func writeTodos(todos []todo, outputFile string) error {
-	file, err := os.OpenFile(outputFile, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	for _, todo := range todos {
-		_, err := file.WriteString(todo.toString())
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+type todo struct {
+	FileName   string
+	LineNumber int
+	Text       string
 }
 
-// findAllFiles returns a slice of filePaths of files that live inside the
-// provided directory and have the provided extension
-func findAllFiles(dir, extension string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			fmt.Printf("failed accessing path: %q, with error: %v\n", path, err)
-			return err
-		}
-
-		if !info.IsDir() && filepath.Ext(path) == extension {
-			files = append(files, path)
-		}
-
-		return nil
-	})
-
-	return files, err
+// toString returns a string representation of the Todo
+func (t todo) toString() string {
+	return fmt.Sprintf("%s - %d - %s\n", t.FileName, t.LineNumber, t.Text)
 }
 
-func welcome() string {
-	msg := "Find todo's in your project.\nType -h for help."
-	return msg
-}
-
+// args acts as a wrapper for all provided arguments
 type args struct {
 	directory *string
 	extension *string
 	output    *string
 }
 
+// setupFlags initializes all supported flags and parses the provided values to these flags
+// returning them at the end
 func setupFlags() args {
 	directory := flag.String("directory", ".", "This flag is used to specify which directory should be scanned.")
 	extension := flag.String("extension", ".go", "This flag is used to specify the extension type the program should look for.")
