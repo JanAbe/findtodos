@@ -10,61 +10,49 @@ import (
 	"sync"
 )
 
-/*
-	input = directory
-	args -> option = welke extensie (.go | .java | .js)
-		findtodos -e .go
-	of geef config bestand mee
-		findtodos -c [path.to.config]
-
-	eerst normaal, daarna concurrent maken
-	concurrent:
-	ga langs alle .go bestanden (bijv.)
-	lees alle bestanden
-	ga opzoek naar alle comments die beginnen met todo: ...
-		todo: kunnen vervangen met een door de gebruiker gespecificeerd patroon
-			bijv. todo 1:
-	als .go -> comment = // of /*
-	als .py -> comment = #
-
-	extraheer de tekst die daar achter staat
-	// todo: refactor code -> [filepath] - [lineNumber] - [todo text]
-
-	misschien nog iets van een flag meegeven dat je de uitvoeringstijd wilt meten
-*/
 func main() {
-	// todo: make the code concurrent
 	args := setupFlags()
+	processTodos(*args.directory, *args.extension, *args.output)
+}
 
-	outputFile, err := createOutputFile(*args.output)
+// ProcessTodos processes all todos, it searches for them and writes them to the output file
+func processTodos(dir, ext, out string) {
+	outputFile, err := createOutputFile(out)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	files, err := findAllFiles(dir, ext)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	var wg sync.WaitGroup
-	files, err := findAllFiles(*args.directory, *args.extension)
-	if err != nil {
-		fmt.Println(err)
+	c := make(chan []todo)
+	for _, file := range files {
+		wg.Add(1)
+		go fetchTodos(file, c, &wg)
 	}
 
-	wg.Add(len(files))
-	for _, file := range files {
-		go processTodos(file, outputFile, &wg)
+	// Close the channel when all goroutines have finished
+	go func() {
+		wg.Wait()
+		close(c)
+	}()
+
+	for todos := range c {
+		writeTodos(todos, outputFile)
 	}
-	wg.Wait()
+
 }
 
-func processTodos(file, outputFile string, wg *sync.WaitGroup) {
+// fetchTodos fetches all todo's from the file and sends them to the channel
+func fetchTodos(file string, c chan []todo, wg *sync.WaitGroup) {
 	todos, err := findTodosInFile(file)
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	err = writeTodos(todos, outputFile)
-	if err != nil {
-		fmt.Println(err)
-	}
-
+	c <- todos
 	wg.Done()
 }
 
@@ -74,6 +62,7 @@ type todo struct {
 	Text       string
 }
 
+// toString returns a string representation of the Todo
 func (t todo) toString() string {
 	return fmt.Sprintf("%s - %d - %s\n", t.FileName, t.LineNumber, t.Text)
 }

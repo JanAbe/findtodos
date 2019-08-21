@@ -7,7 +7,7 @@ import (
 
 // todo rewrite test
 func TestCreatingFile(t *testing.T) {
-	f, err := createOutputFile("dank_test.txt")
+	f, err := createOutputFile("test_test.txt")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -52,4 +52,10 @@ func TestFindTodosInDir(t *testing.T) {
 
 	fmt.Println(todos)
 	fmt.Println()
+}
+
+func BenchmarkMain(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		processTodos(".", ".java", "./found_todos.txt")
+	}
 }
