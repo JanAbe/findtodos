@@ -17,10 +17,18 @@ findtodos -directory=... -extension=... -output=...
 
 #### Benchmark
 Results of multiple benchmark tests.
-The left screen contains the results of the execution of the current program (after the concurrent changes).
-The right screen contains the results of the execution of the program before the changes, so being lineair.
+The left part of the table contains the results of the execution of the current program (after the concurrent changes).
+The right part of the table contains the results of the execution of the program before the changes, so being lineair.
 
-![enter image description here](./docs/Benchmark_results.png)
+|  current program (concurrent)    | | | old program (lineair) | |
+|-------|--------------|-|-------|------------|
+| **N** | **run time** | | **N** | **run time** | 
+| 1000  | 1771085 ns   | | 500   | 2294080 ns   |
+| 1000  | 1832276 ns   | | 500   | 2640026 ns   |
+| 1000  | 1781122 ns   | | 1000  | 2248513 ns   |
+| 1000  | 1831600 ns   | | 1000  | 2273937 ns   |
+| 1000  | 2261793 ns   | | 1000  | 2281806 ns   |
+
 
 As you can see, the change to make it concurrent has resulted in a performance boost 
 
