@@ -154,6 +154,10 @@ func newFindInFile(path string) ([]todo, error) {
 	// todo: rewrit code
 	// if line contains a todo
 	// check if next line starts with text indented to the todo of the line above and does not contain a todo
+
+	// maybe do something like:
+	// while nextLine isContinuation ...
+
 	for scanner.Scan() {
 		lineNumber++
 		line = scanner.Text()
