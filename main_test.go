@@ -35,7 +35,9 @@ func TestFindAllFiles(t *testing.T) {
 
 func TestFindTodosInFile(t *testing.T) {
 	_, tempFile1, _ := setupTempDir()
-	todos, err := findTodosInFile(tempFile1)
+	// todos, err := findTodosInFile(tempFile1)
+	todos, err := newFindInFile(tempFile1)
+	todos = append(todos, todo{"", -1, ""})
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -44,8 +46,11 @@ func TestFindTodosInFile(t *testing.T) {
 		expected todo
 		actual   todo
 	}{
-		{todo{tempFile1, 1, "a lot of things"}, todos[0]},
-		{todo{tempFile1, 4, "find this please"}, todos[1]},
+		{todo{tempFile1, 1, "todo: begins here and ends here"}, todos[0]},
+		{todo{tempFile1, 6, "todo: a new task"}, todos[1]},
+		{todo{tempFile1, 9, "todo: idk"}, todos[2]},
+		{todo{tempFile1, 10, "todo: lol"}, todos[3]},
+		{todo{tempFile1, 12, "todo: idk asd"}, todos[4]},
 	}
 
 	for _, test := range tests {
@@ -60,18 +65,26 @@ func TestFindTodoInString(t *testing.T) {
 // todo make tests
 `)
 
-	todoTxt2 := findTodoInString(`
-// Some random text todo: begins here
-//                   and continues here
-//                   and ends here
-`)
+	// 	todoTxt2 := findTodoInString(`
+	// // Some random text todo: begins here
+	// //                   and continues here
+	// //                   and ends here
+	// `)
+
+	// 	todoTxt3 := findTodoInString(`
+	// // Some random text todo: begins here
+	// //                   and ends here
+	// // something else
+	// //					 ignore
+	// `)
 
 	tests := []struct {
 		expected string
 		actual   string
 	}{
 		{"make tests", todoTxt1},
-		{"begins here and continues here and ends here", todoTxt2},
+		// {"begins here and continues here and ends here", todoTxt2},
+		// {"begins here and ends here", todoTxt3},
 	}
 
 	for _, test := range tests {
@@ -109,10 +122,20 @@ func setupTempDir() (string, string, string) {
 		log.Fatal(err)
 	}
 
-	tempFile1.WriteString(`//todo: a lot of things
-package main
-//this should not be found.
-// todo find this please`)
+	tempFile1.WriteString(`// Some random text todo: begins here
+//                   and ends here
+// something else
+//					 ignore
+// package main
+//    todo: a new task
+//   sdf
+
+// todo: idk
+// asd todo: lol
+
+// todo: idk
+//      asd 
+	`)
 
 	return parentDir, tempFile1.Name(), tempFile2.Name()
 }

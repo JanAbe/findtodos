@@ -81,7 +81,8 @@ func findAllFiles(dir, extension string) ([]string, error) {
 
 // fetchTodos fetches all todo's from the file and sends them to the channel
 func fetchTodos(file string, c chan []todo, wg *sync.WaitGroup) {
-	todos, err := findTodosInFile(file)
+	// todos, err := findTodosInFile(file)
+	todos, err := newFindInFile(file)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -134,26 +135,105 @@ func findTodosInFile(path string) ([]todo, error) {
 	return todos, nil
 }
 
-// todo: make constants of "//" and startPos+len("todo"), what to trim, etc.
-// todo: improve todo findings
+func newFindInFile(path string) ([]todo, error) {
+	var todos []todo
+
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Printf("error opening file %q with error: %v\n", path, err)
+		return todos, nil
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	lineNumber := 0
+	var line string
+	var text string
+
+	// todo: make it recursive, atm it only checks the next comment
+	// todo: rewrit code
+	// if line contains a todo
+	// check if next line starts with text indented to the todo of the line above and does not contain a todo
+	for scanner.Scan() {
+		lineNumber++
+		line = scanner.Text()
+		todoText, todoPos := findTodoInLine(line)
+		if todoPos == -1 {
+			continue
+		}
+
+		text += todoText
+		scanner.Scan()
+		line = scanner.Text()
+		if isContinuationOfTodo(line, todoPos) {
+			text += " " + line[todoPos+1:]
+		}
+		todos = append(todos, todo{file.Name(), lineNumber, text})
+		lineNumber++
+		text = ""
+		continue
+	}
+
+	return todos, nil
+}
+
+// isContinuationOfTodo check if the line is a continuation of the previous line by looking at the position of the todo
+// e.g:
+// todo: some task
+//  that needs to be fulfilled
+// has a correct indentation and is thus, a continuation
+func isContinuationOfTodo(line string, todoPos int) bool {
+	commentIdentifier := "//"
+	space := " "
+	key := "todo"
+	prefix := commentIdentifier + strings.Repeat(space, todoPos-1)
+	containsTodo := strings.Contains(line, key)
+	hasCorrectPrefix := strings.HasPrefix(line, prefix)
+
+	return hasCorrectPrefix && !containsTodo
+}
+
+// is the same as findTodoInString, is here for experimenting purposes
+func findTodoInLine(line string) (string, int) {
+	line = strings.ToLower(line)
+	todoPos := -1
+	todoText := ""
+	if strings.HasPrefix(line, "//") {
+		todoPos = strings.Index(line, "todo")
+		if todoPos == -1 {
+			return todoText, -1
+		}
+		todoText = line[todoPos:]
+	}
+
+	return todoText, todoPos
+}
+
+// todo: rename to FindTodoInLine()
 // FindTodoInString finds and returns the body of the todo from a string,
 // but only if the string contains a todo
 func findTodoInString(line string) string {
 	var todoText string
 	var startPos int
+	commentIndicator := "//"
+	key := "todo"
+	n := len(key)
+	charsToRemove := ": "
+
 	line = strings.TrimSpace(line)
 	line = strings.ToLower(line)
-	if strings.HasPrefix(line, "//") {
-		startPos = strings.Index(line, "todo")
+	if strings.HasPrefix(line, commentIndicator) {
+		startPos = strings.Index(line, key)
 		if startPos == -1 {
 			return ""
 		}
-		todoText = line[startPos+len("todo"):] // get todo's text (everything from todo -> till the end of line)
+		todoText = line[startPos+n:] // get todo's text (everything from todo -> till the end of line)
 	}
-	todoText = strings.TrimLeft(todoText, ": ")
+	todoText = strings.TrimLeft(todoText, charsToRemove)
 	return todoText
 }
 
+// todo struct to capture todo's
 type todo struct {
 	FileName   string
 	LineNumber int
